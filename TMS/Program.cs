@@ -1,10 +1,12 @@
 ﻿using System;
 using System.Collections.Generic;
 using TMS.Models;
+using TMS.Services;
+using TMS.Sessions;
+using TMS.Payments;
 
+Dictionary<string, Learner> learners = new Dictionary<string, Learner>();
 
-Dictionary<string, Learner> learners =
-    new Dictionary<string, Learner>();
 Course[] courses = {
             new Course("C1", "C SHARP BASICS", 3000m, 15, 30),
             new Course("C2", "JAVA PROGRAMMING", 4000m, 20, 25),
@@ -12,6 +14,20 @@ Course[] courses = {
             new Course("C4", "PYTHON BASICS", 2500m, 12, 30),
             new Course("C5", "DATABASE MNGMNT", 3200m, 15, 20)
             };
+
+List<Enrollment> enrollments = new List<Enrollment>();
+
+EnrollmentService enrollmentService = new EnrollmentService();
+
+FeeCalculator feeCalculator = new FeeCalculator();
+
+List<Payment> payments = new List<Payment>();
+
+PaymentService paymentService = new PaymentService();
+
+int nextPaymentId = 1;
+
+int nextEnrollmentId = 1;
 int x = 0;
 do
 {
@@ -24,8 +40,13 @@ do
     "4. Register Learner\n" +
     "5. Display All Learners\n" +
     "6. Search Learner by ID\n" +
-    "7. Remove Learner\n" +
-    "8. Exit");
+    "7. Remove Learner\n8. Exit\n" +
+    "9. Enroll in Course\n" +
+    "10. Cancel Enrollment\n"+
+    "11. Test Session Types\n"+
+    "12. Test Course Summary\n"+
+    "13. Make Payment\n"+
+    "14. Display Payment History\n");
     Console.WriteLine("--------------------------------------------");
     if (!int.TryParse(Console.ReadLine(), out x))
     {
@@ -48,20 +69,20 @@ do
         case 2:
             Console.Write("Enter Course Id or Name to Search: ");
             string? search = Console.ReadLine();
-            foreach (Course c in courses)
+            foreach (Course ci in courses)
             {
-                if (c.CId.ToUpper() == search?.ToUpper() ||
-                    c.Title.ToUpper() == search?.ToUpper())
+                if (ci.CId.ToUpper() == search?.ToUpper() ||
+                    ci.Title.ToUpper() == search?.ToUpper())
                 {
                     Console.WriteLine();
                     Console.WriteLine("--------------------------------------------");
-                    Console.WriteLine($"Course Code: {c.CId}");
-                    Console.WriteLine($"Title: {c.Title}");
-                    Console.WriteLine($"Fee: {c.Fee}");
-                    Console.WriteLine($"Duration (Days): {c.DurDay}");
-                    Console.WriteLine($"Total Seats: {c.Tot}");
-                    Console.WriteLine($"Enrolled Count: {c.EnCt}");
-                    Console.WriteLine($"Available Seats: {c.Tot - c.EnCt}");
+                    Console.WriteLine($"Course Code: {ci.CId}");
+                    Console.WriteLine($"Title: {ci.Title}");
+                    Console.WriteLine($"Fee: {ci.Fee}");
+                    Console.WriteLine($"Duration (Days): {ci.DurDay}");
+                    Console.WriteLine($"Total Seats: {ci.Tot}");
+                    Console.WriteLine($"Enrolled Count: {ci.EnCt}");
+                    Console.WriteLine($"Available Seats: {ci.Tot - ci.EnCt}");
                     Console.WriteLine("--------------------------------------------");
                     Console.WriteLine();
                 }
@@ -231,6 +252,212 @@ do
 
         case 8:
             Console.WriteLine("Exiting application...");
+            break;
+
+
+        case 9:
+            Console.Write("Enter Learner ID: ");
+            string enrollLearnerId = (Console.ReadLine() ?? "").Trim();
+
+            Console.Write("Enter Course Code: ");
+            string courseCode = (Console.ReadLine() ?? "").Trim();
+
+            Console.Write("Enter Course Start Date (dd/MM/yyyy): ");
+            string startInput = Console.ReadLine() ?? "";
+
+            if (!DateTime.TryParseExact(
+                startInput, "dd/MM/yyyy",
+                System.Globalization.CultureInfo.InvariantCulture,
+                System.Globalization.DateTimeStyles.None,
+                out DateTime courseStartDate))
+            {
+                Console.WriteLine("Invalid date format!");
+                break;
+            }
+
+            Console.Write("Session Type (online/classroom): ");
+            string sessionType = (Console.ReadLine() ?? "")
+                .Trim().ToLowerInvariant();
+
+            if (sessionType != "online" && sessionType != "classroom")
+            {
+                Console.WriteLine("Invalid session type!");
+                break;
+            }
+
+            Console.Write("Number of eligible learners enrolling together: ");
+
+            if (!int.TryParse(Console.ReadLine(), out int groupSize)
+                || groupSize < 1)
+            {
+                Console.WriteLine("Invalid group size!");
+                break;
+            }
+
+            enrollmentService.Enroll(
+                enrollLearnerId,
+                courseCode,
+                courseStartDate,
+                sessionType,
+                groupSize,
+                learners,
+                courses,
+                enrollments,
+                feeCalculator,
+                ref nextEnrollmentId);
+
+            break;
+
+
+        case 10:
+            Console.Write("Enter Enrollment ID to cancel: ");
+
+            if (!int.TryParse(Console.ReadLine(), out int cancelId))
+            {
+                Console.WriteLine("Invalid enrollment ID!");
+                break;
+            }
+
+            enrollmentService.Cancel(
+                cancelId, enrollments, courses);
+
+            break;
+
+
+        case 11:
+            CourseSession online = new OnlineSession(
+                "C1", DateTime.Today.AddDays(20),
+                new SessionDuration(15));
+
+            CourseSession classroom = new ClassroomSession(
+                "C2", DateTime.Today.AddDays(25),
+                new SessionDuration(20));
+
+            Console.WriteLine(
+                $"Online session charge: ₹{online.CalculateCharge()}");
+
+            Console.WriteLine(
+                $"Classroom session charge: ₹{classroom.CalculateCharge()}");
+
+            break;
+
+        case 12:
+            Course c = courses[0];
+
+            CourseSummary summary1 = new CourseSummary(
+                c.CId, c.Title, c.Fee, c.Tot - c.EnCt);
+
+            CourseSummary summary2 = new CourseSummary(
+                c.CId, c.Title, c.Fee, c.Tot - c.EnCt);
+
+            Console.WriteLine(
+                $"Summary 1 equals Summary 2: {summary1 == summary2}");
+
+            CourseSummary modified = summary1 with
+            {
+                AvailableSeats = summary1.AvailableSeats - 1
+            };
+
+            Console.WriteLine($"Original seats: {summary1.AvailableSeats}");
+            Console.WriteLine($"Modified seats: {modified.AvailableSeats}");
+
+            SessionDuration duration1 = new SessionDuration(15);
+            SessionDuration duration2 = duration1;
+
+            duration2.Days = 20;
+
+            Console.WriteLine($"Original duration: {duration1.Days}");
+            Console.WriteLine($"Copied duration: {duration2.Days}");
+
+            break;
+
+
+        case 13:
+            Console.Write("Enter Enrollment ID: ");
+
+            if (!int.TryParse(Console.ReadLine(), out int paymentEnrollmentId))
+            {
+                Console.WriteLine("Invalid enrollment ID!");
+                break;
+            }
+
+            Enrollment? paymentEnrollment = null;
+
+            foreach (Enrollment e in enrollments)
+            {
+                if (e.EnrollmentId == paymentEnrollmentId)
+                {
+                    paymentEnrollment = e;
+                    break;
+                }
+            }
+
+            if (paymentEnrollment == null)
+            {
+                Console.WriteLine("Enrollment not found!");
+                break;
+            }
+
+            Console.WriteLine("1. Online Payment");
+            Console.WriteLine("2. Classroom Payment");
+            Console.Write("Choose processor: ");
+
+            if (!int.TryParse(Console.ReadLine(), out int processorChoice)
+                || (processorChoice != 1 && processorChoice != 2))
+            {
+                Console.WriteLine("Invalid processor choice!");
+                break;
+            }
+
+            Console.WriteLine("1. Simulate Success");
+            Console.WriteLine("2. Simulate Failure");
+            Console.Write("Choose payment result: ");
+
+            if (!int.TryParse(Console.ReadLine(), out int resultChoice)
+                || (resultChoice != 1 && resultChoice != 2))
+            {
+                Console.WriteLine("Invalid result choice!");
+                break;
+            }
+
+            IPaymentProcessor processor;
+
+            if (processorChoice == 1)
+            {
+                processor = new OnlinePaymentProcessor();
+            }
+            else
+            {
+                processor = new ClassroomPaymentProcessor();
+            }
+
+            paymentService.MakePayment(
+                paymentEnrollment,
+                processor,
+                resultChoice == 1,
+                payments,
+                ref nextPaymentId);
+
+            break;
+
+
+        case 14:
+            if (payments.Count == 0)
+            {
+                Console.WriteLine("No payment attempts recorded.");
+                break;
+            }
+
+            foreach (Payment p in payments)
+            {
+                Console.WriteLine(
+                    $"Payment ID: {p.PaymentId} | " +
+                    $"Enrollment ID: {p.EnrollmentId} | " +
+                    $"Amount: ₹{p.Amount:F2} | " +
+                    $"Date: {p.PaymentDate} | " +
+                    $"Status: {p.Status}");
+            }
+
             break;
 
         default:
