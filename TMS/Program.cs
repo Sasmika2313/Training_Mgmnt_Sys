@@ -5,6 +5,8 @@ using TMS.Services;
 using TMS.Sessions;
 using TMS.Payments;
 
+FileService fileService = new FileService();
+
 Dictionary<string, Learner> learners = new Dictionary<string, Learner>();
 
 Course[] courses = {
@@ -47,6 +49,9 @@ do
     "12. Test Course Summary\n"+
     "13. Make Payment\n"+
     "14. Display Payment History\n");
+    Console.WriteLine("15. Save Learner Details to File");
+    Console.WriteLine("16. Save Course Details to File");
+    Console.WriteLine("17. Save All Details");
     Console.WriteLine("--------------------------------------------");
     if (!int.TryParse(Console.ReadLine(), out x))
     {
@@ -458,6 +463,19 @@ do
                     $"Status: {p.Status}");
             }
 
+            break;
+
+        case 15:
+            fileService.SaveLearners(learners);
+            break;
+
+        case 16:
+            fileService.SaveCourses(courses);
+            break;
+
+        case 17:
+            fileService.SaveLearners(learners);
+            fileService.SaveCourses(courses);
             break;
 
         default:
